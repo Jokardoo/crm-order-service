@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: order-service  # Имя приложения (должно совпадать с именем файла конфига)
+
+  cloud:
+    config:
+      uri: http://localhost:8071  # URL Config Server
+      profile: dev                # Профиль (dev/prod)
+      fail-fast: true             # Остановиться, если Config Server не доступен
+      retry:
+        initial-interval: 1000
+        max-interval: 2000
+        max-attempts: 3

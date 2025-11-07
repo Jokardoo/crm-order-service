@@ -1,0 +1,121 @@
+spring:
+  application:
+    name: order-service
+  config:
+    import: "configserver:http://localhost:8071"
+
+  kafka:
+    ui:
+      url: http://localhost:8090
+      topics:
+        orders: orders-topic
+        notifications: notifications-topic
+        users: users-topic
+    # Адреса Kafka брокеров для подключения
+    bootstrap-servers: localhost:9092
+
+    producer:
+      # Сериализаторы для ключей и значений
+      key-serializer: org.apache.kafka.common.serialization.LongSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+      properties:
+        enable.idempotence: true
+        # Гарантирует записи на все реплики
+        acks: all
+        retries: 2147483647  # Integer.MAX_VALUE
+        max.in.flight.requests.per.connection: 5
+        request.timeout.ms: 10000
+        delivery.timeout.ms: 30000
+
+
+
+
+
+#    consumer:
+#      group-id: my-group  # ID группы консьюмеров
+#      auto-offset-reset: earliest  # Чтение с начала при отсутствии смещения
+#      # Десериализаторы для ключей и значений
+#      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+#      properties:
+#        spring.json.trusted.packages: "*"  # Разрешить десериализацию всех пакетов
+
+
+#spring:
+#  security:
+#    user:
+#      name: swagger
+#      password: password
+#      roles: SWAGGER
+#  profiles:
+#    active: admin
+#  main:
+#    allow-circular-references: true
+#  application:
+#    name: order-service
+#  datasource:
+#    url: jdbc:postgresql://localhost:5432/orders
+#    username: postgres
+#    password: postgres
+#    driver-class-name: org.postgresql.Driver
+#
+#  sql:
+#    init:
+#      mode: always
+#      continue-on-error: false
+#  jpa:
+#    show-sql: true
+#
+#    hibernate:
+#      ddl-auto: update
+#
+#security:
+#  jwt:
+#    secret: ZXJ0dm55ZXBydGl2YXlqc2tocmxrc2hhZjtrZXJhc29pZ2hmamtmanNmc2Zsa2psa2R1Z2VydG9pY2FsamRzZmlhdmpzZXRpbHNqdmR1c2lnaXRkcmx0dnN2c2FkZw==
+#    access: 3600000
+#    refresh: 2592000000
+#
+#
+## http://localhost:8082/manage/health
+#management:
+#  endpoints:
+#    web:
+#      exposure:
+#        include: "*"  # Открыть все эндпоинты
+#      base-path: /manage  # Изменить базовый URL
+#  endpoint:
+#    health:
+#      show-details: always
+#
+#
+#server:
+#  port: 8082
+#
+logging:
+  level:
+    org:
+      springdoc: DEBUG
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: method
+    doc-expansion: none
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+minio:
+  bucket: ${MINIO_BUCKET:images}
+  url: ${MINIO_URL:http://localhost:9000}
+  accessKey: ${MINIO_ACCESS_KEY:minioadmin}
+  secretKey: ${MINIO_SECRET_KEY:minioadmin}
+
+
