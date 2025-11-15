@@ -2,6 +2,7 @@ package com.jokardo.crm.order_service.exceptions;
 
 import com.jokardo.crm.order_service.exceptions.image.ImageUploadException;
 import com.jokardo.crm.order_service.exceptions.order.OrderCannotBeUpdatedException;
+import com.jokardo.crm.order_service.exceptions.order.OrderNotFoundException;
 import com.jokardo.crm.order_service.exceptions.product.ProductNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -54,6 +55,17 @@ public class AdviceController {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ResponseEntity<ExceptionResponse> handleOrderNotFoundException(OrderNotFoundException ex) {
+        ExceptionResponse response = new ExceptionResponse(
+                HttpStatus.NOT_FOUND,
+                "Order can not be updated, because he's not found!",
+                ex.getMessage(),
+                LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ExceptionResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
 
@@ -71,6 +83,17 @@ public class AdviceController {
                 sb.toString(),
                 LocalDateTime.now()
         );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ExceptionResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        ExceptionResponse response = new ExceptionResponse(
+                HttpStatus.BAD_REQUEST,
+                "Illegal argument exception",
+                ex.getLocalizedMessage(),
+                LocalDateTime.now());
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
