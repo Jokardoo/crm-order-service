@@ -2,8 +2,31 @@
 volumes:
   minio-data:
     driver: local
+# postgres-data:
+#  driver: local
 
 services:
+  backend:
+    build: .
+    networks:
+      - app
+
+    # проперти будут подтягиваться из файла .env в корне
+    env_file:
+      - .env
+
+    ports:
+      - '8082:8082'
+
+#  postgres:
+#    image: 'postgres:15.1-alpine'
+#    env_file:
+#      - .env
+#    ports:
+#      - '5432:5432'
+#    volumes:
+#      - postgres-data:/var/lib/postgresql/data
+
   app:
     build:
       context: .
@@ -76,5 +99,7 @@ services:
 
 # Создаем отдельную сеть для изоляции сервисов Kafka
 networks:
+  app:
+    driver: bridge
   kafka-network:
     driver: bridge  # Тип сети - bridge
