@@ -49,20 +49,24 @@ public class OrderController {
     public ResponseEntity<OrderDto> updateOrderInfo(@PathVariable Long id, @Valid @RequestBody OrderUpdateRequest orderUpdateRequest) {
         logger.info("Called updateOrderInfo method: {}", orderUpdateRequest);
 
-        orderService.updateOrderInfo(id, orderUpdateRequest);
-
         return ResponseEntity.status(200)
                 .body(orderModelToDtoMapper.toDto(orderService.updateOrderInfo(id, orderUpdateRequest)));
     }
 
     @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<HttpStatus> approveOrder(@PathVariable Long id) {
         logger.info("Called approveOrder method: {}", id);
 
         orderService.approveOrder(id);
 
         return ResponseEntity.status(HttpStatus.OK).build();
+    }
+
+    @GetMapping()
+    @Operation(summary = "Get hello")
+  //  @ApiResponses(value = @ApiResponse(responseCode = "200", description = "hello from OrdersController!"))
+    public ResponseEntity<String> hello() {
+        return ResponseEntity.status(HttpStatus.OK).body("hello");
     }
 
 

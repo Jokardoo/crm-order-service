@@ -79,14 +79,11 @@ public class OrderItemService {
 
             List<OrderItemImage> orderItemImages = orderItemImageModelToDtoMapper.toModel(orderItemRequest.getImages());
 
-            if (orderItemImages != null) {
-                orderItemImages.forEach(oii ->
-                        orderItem
-                                .getImages()
-                                .add(imageService.uploadOrderItemImage(oii))
-                );
-            }
-
+            orderItemImages.forEach(oii ->
+                    orderItem
+                            .getImages()
+                            .add(imageService.uploadOrderItemImage(oii))
+            );
             orderItem.setQuantity(orderItemRequest.getQuantity());
             orderItem.setIndexInOrder(currentOrderItemIndex);
             orderItems.add(orderItem);

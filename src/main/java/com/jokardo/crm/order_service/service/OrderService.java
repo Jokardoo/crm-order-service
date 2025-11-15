@@ -129,14 +129,12 @@ public class OrderService {
 
         logger.info("Called addCustomerFromOrderRequestToOrder method: {}", request);
 
-        if (request.getCustomerPhoneNumber() == null || request.getCustomerPhoneNumber().isEmpty())
-            throw new IllegalArgumentException("Customer phone number cannot be empty");
-
         if (customerService.existsByPhoneNumber(request.getCustomerPhoneNumber()))
             orderToBind.setCustomer( customerService.getByPhoneNumber(request.getCustomerPhoneNumber()) );
 
         else if (request.getCustomerName() != null
-                && request.getCustomerSurname() != null) {
+                && request.getCustomerSurname() != null
+                && request.getCustomerPhoneNumber() != null) {
 
             Customer customer = customerService.createCustomerFromOrderRequest(request);
 

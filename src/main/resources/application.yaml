@@ -2,11 +2,7 @@ spring:
   application:
     name: order-service
   config:
-    import:
-      # optional:file... для того, чтобы можно было доставать проперти из файла .env
-      - "configserver:http://localhost:8071"
-      - "optional:file:.env[.properties]"
-
+    import: "configserver:http://localhost:8071"
 
   kafka:
     ui:
@@ -31,8 +27,6 @@ spring:
         max.in.flight.requests.per.connection: 5
         request.timeout.ms: 10000
         delivery.timeout.ms: 30000
-
-
 
 
 
