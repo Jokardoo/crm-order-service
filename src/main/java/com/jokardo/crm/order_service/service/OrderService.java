@@ -74,6 +74,25 @@ public class OrderService {
         return orderModelToEntityMapper.toModel(savedOrderEntity);
     }
 
+    @Transactional
+    public void cancelOrderById(Long id) {
+        logger.info("Called cancelOrderById method: {}", id);
+
+        Order foundOrder = orderModelToEntityMapper.toModel(
+                orderRepository.findById(id).orElseThrow(() -> new OrderNotFoundException("Order with id " + id + " does not exist"))
+        );
+
+        if (foundOrder.getStatus().equals(OrderStatusEnum.CANCELLED)) {
+            logger.info("Order with id {} already cancelled", id);
+        }
+        else {
+            foundOrder.setStatus(OrderStatusEnum.CANCELLED);
+            orderRepository.save(orderModelToEntityMapper.toEntity(foundOrder));
+            logger.info("Order with id {} has been cancelled", id);
+        }
+
+    }
+
 
 
     @Transactional
@@ -85,6 +104,16 @@ public class OrderService {
 
 
         orderRepository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public Order getOrderById(Long id) {
+        logger.info("Called getOrderById: {}", id);
+
+        return orderModelToEntityMapper.toModel(
+                orderRepository.findById(id)
+                        .orElseThrow(() -> new OrderNotFoundException("Order with id = " + id + " not found!"))
+        );
     }
 
 
@@ -132,8 +161,17 @@ public class OrderService {
         if (request.getCustomerPhoneNumber() == null || request.getCustomerPhoneNumber().isEmpty())
             throw new IllegalArgumentException("Customer phone number cannot be empty");
 
-        if (customerService.existsByPhoneNumber(request.getCustomerPhoneNumber()))
-            orderToBind.setCustomer( customerService.getByPhoneNumber(request.getCustomerPhoneNumber()) );
+        if (customerService.existsByPhoneNumber(request.getCustomerPhoneNumber())) {
+            Customer foundCustomer = customerService.getByPhoneNumber(request.getCustomerPhoneNumber());
+
+            if (!request.getCustomerName().equals(foundCustomer.getName())
+            || !request.getCustomerSurname().equals(foundCustomer.getSurname())) {
+                throw new IllegalArgumentException("This phone number are reserved by another customer!");
+            }
+
+            orderToBind.setCustomer(foundCustomer);
+        }
+
 
         else if (request.getCustomerName() != null
                 && request.getCustomerSurname() != null) {

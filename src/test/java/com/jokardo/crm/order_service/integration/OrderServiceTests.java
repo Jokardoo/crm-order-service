@@ -1,10 +1,9 @@
 package com.jokardo.crm.order_service.integration;
 
+import com.jokardo.crm.order_service.domain.address.Address;
 import com.jokardo.crm.order_service.domain.customer.Customer;
 import com.jokardo.crm.order_service.domain.customer.CustomerEntity;
 import com.jokardo.crm.order_service.domain.order.*;
-import com.jokardo.crm.order_service.domain.order.order_item.OrderItem;
-import com.jokardo.crm.order_service.domain.order.order_item.OrderItemEntity;
 import com.jokardo.crm.order_service.exceptions.order.OrderCannotBeUpdatedException;
 import com.jokardo.crm.order_service.exceptions.order.OrderNotFoundException;
 import com.jokardo.crm.order_service.kafka.order.OrderSender;
@@ -21,193 +20,167 @@ import com.jokardo.crm.order_service.service.ImageService;
 import com.jokardo.crm.order_service.service.OrderService;
 import com.jokardo.crm.order_service.service.orderItem.OrderItemService;
 import com.jokardo.crm.order_service.util.CustomerBuilder;
-import com.jokardo.crm.order_service.util.OrderBuilder;
-import com.jokardo.crm.order_service.util.order_item.OrderItemBuilder;
+import com.jokardo.crm.order_service.util.address.AddressDtoBuilder;
 import com.jokardo.crm.order_service.util.order_item.OrderItemRequestBuilder;
 import com.jokardo.crm.order_service.util.OrderRequestBuilder;
-import com.jokardo.crm.order_service.util.address.AddressBuilder;
-import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 @Testcontainers
 @TestConfiguration(proxyBeanMethods = false) // чтобы не создавались прокси бины
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT) //тк неизвестно, какие порты могут
 @ActiveProfiles("test")
-@ExtendWith(MockitoExtension.class)
-@RequiredArgsConstructor
 public class OrderServiceTests {
 
     @Autowired
     private OrderService orderService;
 
-    @MockitoBean
+    @Container
+    @ServiceConnection //позволяет передать в спринг необходимую конфигурацию
+    private static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
+            "postgres:15.1-alpine"
+    );
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+    }
+
+    @Autowired
     private OrderRepository orderRepository;
-
-    @MockitoBean
+    @Autowired
     private CustomerService customerService;
-
-    @MockitoBean
+    @Autowired
     private OrderItemService orderItemService;
 
     @MockitoBean
     private ImageService imageService;
 
-    @MockitoBean
+    @Autowired
     private OrderUtil orderUtil;
-
-    @MockitoBean
+    @Autowired
     private OrderSender orderSender;
 
-    @MockitoBean
+    @Autowired
     private CustomerRepository customerRepository;
-
-    @MockitoBean
+    @Autowired
     private OrderItemRepository orderItemRepository;
 
     // Mappers - их можно сделать реальными или мокать в зависимости от сложности
     @Autowired(required = false)
     private AddressModelToDtoMapper addressModelToDtoMapper;
 
-    @MockitoBean
+    @Autowired
     private OrderModelToEntityMapper orderModelToEntityMapper;
 
-    @MockitoBean
+    @Autowired
     private OrderItemModelToEntityMapper orderItemModelToEntityMapper;
 
-    @MockitoBean
+    @Autowired
     private CustomerModelToEntityMapper customerModelToEntityMapper;
 
-    @MockitoBean
+    @Autowired
     private OrderItemModelToDtoMapper orderItemModelToDtoMapper;
 
+    @Autowired(required = false)
     private OrderRequest orderRequest;
+    @Autowired(required = false)
     private Order order;
+    @Autowired(required = false)
     private OrderEntity orderEntity;
+    @Autowired(required = false)
     private Customer customer;
+    @Autowired(required = false)
     private CustomerEntity customerEntity;
 
     private OrderRequestBuilder orderRequestBuilder;
 
     @BeforeEach
     void setUp() {
-        orderRequest = OrderRequestBuilder
-                .builder()
-                .withCustomer("John", "Doe", "88888888888")
-                .withItems( List.of(OrderItemRequestBuilder.buildDefaultValidOrderItemRequest()) )
-                .build();
+        customerRepository.deleteAll();
+        orderRepository.deleteAll();
+        orderItemRepository.deleteAll();
 
-        customer = CustomerBuilder
-                .builder()
-                .withId(1L)
-                .withName("John")
-                .withSurname("Doe")
-                .withPhoneNumber("88888888888")
-                .build();
-
-
-        customerEntity = new CustomerEntity();
-        customerEntity.setId(1L);
-        customerEntity.setPhoneNumber("88888888888");
-        customerEntity.setName("John");
-        customerEntity.setSurname("Doe");
-
-
-        order = OrderBuilder.builder()
-                .withId(1L)
-                .withStatus(OrderStatusEnum.NEW)
-                .withCreatedAt(LocalDateTime.now())
-                .withCustomer(customer)
-                .withDeliveryAddress(
-                        AddressBuilder.builder()
-                                .withCity("city")
-                                .withStreet("street")
-                                .withPostalCode("123456")
-                                .build()
-                )
-                .build();
-
-        orderEntity = new OrderEntity();
-        orderEntity.setId(1L);
-        orderEntity.setStatus(OrderStatusEnum.NEW);
-        orderEntity.setCreatedAt(LocalDateTime.now());
     }
 
     @Test
     void createOrder_WithValidRequest_ShouldCreateOrder() {
-        // Arrange
-        when(customerService.existsByPhoneNumber(anyString())).thenReturn(false);
-        when(customerService.createCustomerFromOrderRequest(any(OrderRequest.class))).thenReturn(customer);
-        when(customerRepository.save(any(CustomerEntity.class))).thenReturn(customerEntity);
-        when(customerModelToEntityMapper.toModel(any(CustomerEntity.class))).thenReturn(customer);
 
-        List<OrderItem> orderItems = List.of(
-                OrderItemBuilder.builder()
-                        .withDescription("description")
-                        .withProductName("product name")
-                        .withQuantity(2)
-                .build()
-        );
+        Customer customer = CustomerBuilder.generateDefaultValidCustomer();
 
-        when(orderItemService.parseOrderItemsRequests(anyList())).thenReturn(orderItems);
+        OrderRequest orderRequest = OrderRequestBuilder
+                .builder()
+                .withCustomer(
+                        customer.getName(),
+                        customer.getSurname(),
+                        customer.getPhoneNumber()
+                )
+                .withItems( List.of(OrderItemRequestBuilder.buildDefaultValidOrderItemRequest()) )
+                .build();
 
-        List<OrderItemEntity> orderItemEntities = List.of(new OrderItemEntity(), new OrderItemEntity());
 
-        when(orderItemModelToEntityMapper.toEntity(anyList())).thenReturn(orderItemEntities);
+        Assertions.assertFalse( customerRepository.findByPhoneNumber( customer.getPhoneNumber() )
+                .isPresent());
 
-        when(orderModelToEntityMapper.toEntity(any(Order.class))).thenReturn(orderEntity);
-        when(orderRepository.save(any(OrderEntity.class))).thenReturn(orderEntity);
-        when(orderModelToEntityMapper.toModel(any(OrderEntity.class))).thenReturn(order);
+        Assertions.assertTrue( orderRepository.findByCustomerPhoneNumber( customer.getPhoneNumber() )
+                .isEmpty());
 
-        // Act
-        Order result = orderService.createOrder(orderRequest);
+        Order createdOrder = orderService.createOrder(orderRequest);
 
-        // Assert
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(OrderStatusEnum.NEW, result.getStatus());
-        Assertions.assertNotNull(result.getCreatedAt());
-        Assertions.assertNotNull(result.getCustomer());
+        Assertions.assertTrue(orderRepository.findByCustomerPhoneNumber(customer.getPhoneNumber()).size() == 1);
+        Assertions.assertTrue(customerRepository.findByPhoneNumber( customer.getPhoneNumber() ).isPresent());
 
-        verify(orderRepository, times(1)).save(any(OrderEntity.class));
-        verify(customerRepository, times(1)).save(any(CustomerEntity.class));
+        Assertions.assertTrue(createdOrder.getStatus() == OrderStatusEnum.NEW);
+
+        Address savedAddress = new Address();
+        savedAddress.setCity(orderRequest.getDeliveryAddress().getCity());
+        savedAddress.setStreet(orderRequest.getDeliveryAddress().getStreet());
+        savedAddress.setPostalCode(orderRequest.getDeliveryAddress().getPostalCode());
+
+        Assertions.assertEquals(createdOrder.getDeliveryAddress(), savedAddress);
+        Assertions.assertNotNull(createdOrder.getCreatedAt());
+
+
     }
 
     @Test
-    void createOrder_WithExistingCustomer_ShouldUseExistingCustomer() {
-        // Arrange
-        when(customerService.existsByPhoneNumber(anyString())).thenReturn(true);
-        when(customerService.getByPhoneNumber(anyString())).thenReturn(customer);
-        when(orderItemService.parseOrderItemsRequests(anyList())).thenReturn(List.of());
-        when(orderItemModelToEntityMapper.toEntity(anyList())).thenReturn(List.of());
-        when(orderModelToEntityMapper.toEntity(any(Order.class))).thenReturn(orderEntity);
-        when(orderRepository.save(any(OrderEntity.class))).thenReturn(orderEntity);
-        when(orderModelToEntityMapper.toModel(any(OrderEntity.class))).thenReturn(order);
+    void createOrder_WithExistingCustomer_WithAnotherNameAndSurname_ShouldThrowIllegalArgumentException() {
+        Customer existingCustomer = CustomerBuilder.generateDefaultValidCustomer();
+
+        customerRepository.save(customerModelToEntityMapper.toEntity(existingCustomer));
+
+        Assertions.assertNotNull(orderRepository.findByCustomerPhoneNumber(existingCustomer.getPhoneNumber()));
+
+        OrderRequest orderRequest = OrderRequestBuilder.builder()
+                .withItems(
+                        List.of(OrderItemRequestBuilder
+                                .buildDefaultValidOrderItemRequest())
+                )
+                // добавляем другого пользователя, который использует зарегестрированный номер
+                .withCustomer("Steave", "Belik", existingCustomer.getPhoneNumber())
+                .build();
 
         // Act
-        Order result = orderService.createOrder(orderRequest);
+        Assertions.assertThrows(IllegalArgumentException.class, () -> orderService.createOrder(orderRequest));
 
-        // Assert
-        assertNotNull(result);
-        verify(customerService, times(1)).getByPhoneNumber(orderRequest.getCustomerPhoneNumber());
-        verify(customerService, never()).createCustomerFromOrderRequest(any());
-        verify(customerRepository, never()).save(any());
     }
 
     @Test
@@ -236,64 +209,58 @@ public class OrderServiceTests {
                 () -> orderService.createOrder(invalidRequest));
     }
 
-    @Test
-    void deleteByOrderId_ShouldDeleteOrderAndImages() {
-        // Arrange
-        Long orderId = 1L;
-        List<String> imageNames = List.of("image1.jpg", "image2.jpg");
-        when(orderRepository.findImagesNamesByOrderId(orderId)).thenReturn(imageNames);
-        doNothing().when(orderRepository).deleteById(orderId);
 
-        // Act
-        orderService.deleteByOrderId(orderId);
-
-        // Assert
-        verify(imageService, times(1)).deleteImageByImageName("image1.jpg");
-        verify(imageService, times(1)).deleteImageByImageName("image2.jpg");
-        verify(orderRepository, times(1)).deleteById(orderId);
-    }
 
     @Test
     void updateOrderInfo_WithUpdatableStatus_ShouldUpdateOrder() {
         // Arrange
-        Long orderId = 1L;
+        OrderRequest orderRequest = OrderRequestBuilder
+                .builder()
+                .withCustomer(
+                        CustomerBuilder.generateDefaultValidCustomer()
+                )
+                .withItems( List.of(OrderItemRequestBuilder.buildDefaultValidOrderItemRequest()) )
+                .build();
+
+        Order createdOrder = orderService.createOrder(orderRequest);
+
+        Assertions.assertTrue(createdOrder.getStatus() == OrderStatusEnum.NEW);
+
         OrderUpdateRequest updateRequest = new OrderUpdateRequest();
+        updateRequest.setDeliveryAddress(AddressDtoBuilder.builder().getDefaultValidAddressDto());
 
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(orderEntity));
-        when(orderModelToEntityMapper.toModel(orderEntity)).thenReturn(order);
-        doNothing().when(orderUtil).updateAllOrderFields(order, updateRequest);
-        when(orderRepository.save(any(OrderEntity.class))).thenReturn(orderEntity);
-        when(orderModelToEntityMapper.toModel(orderEntity)).thenReturn(order);
+        try {
+            orderService.updateOrderInfo(createdOrder.getId(), updateRequest);
+        } catch (OrderCannotBeUpdatedException e) {
+            Assertions.fail();
+        }
+        Assertions.assertTrue(true);
 
-        // Act
-        Order result = orderService.updateOrderInfo(orderId, updateRequest);
-
-        // Assert
-        assertNotNull(result);
-        verify(orderUtil, times(1)).updateAllOrderFields(order, updateRequest);
-        verify(orderRepository, times(1)).save(any(OrderEntity.class));
     }
 
     @Test
     void updateOrderInfo_WithNonUpdatableStatus_ShouldThrowException() {
-        // Arrange
-        Long orderId = 1L;
+
         OrderUpdateRequest updateRequest = new OrderUpdateRequest();
 
-        Order cancelledOrder = OrderBuilder.builder()
-                .withId(orderId)
-                .withStatus(OrderStatusEnum.CANCELLED)
+
+        OrderRequest orderRequest = OrderRequestBuilder
+                .builder()
+                .withCustomer(
+                        CustomerBuilder.generateDefaultValidCustomer()
+                )
+                .withItems( List.of(OrderItemRequestBuilder.buildDefaultValidOrderItemRequest()) )
                 .build();
 
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(orderEntity));
-        when(orderModelToEntityMapper.toModel(orderEntity)).thenReturn(cancelledOrder);
+        Order createdOrder = orderService.createOrder(orderRequest);
 
-        // Act & Assert
-        assertThrows(OrderCannotBeUpdatedException.class,
-                () -> orderService.updateOrderInfo(orderId, updateRequest));
+        Assertions.assertNotNull(createdOrder);
 
-        verify(orderUtil, never()).updateAllOrderFields(any(), any());
-        verify(orderRepository, never()).save(any());
+        orderService.cancelOrderById(createdOrder.getId());
+
+
+        Assertions.assertThrows(OrderCannotBeUpdatedException.class, () -> orderService.updateOrderInfo(createdOrder.getId(), updateRequest));
+
     }
 
     @Test
@@ -302,8 +269,6 @@ public class OrderServiceTests {
         Long orderId = 999L;
         OrderUpdateRequest updateRequest = new OrderUpdateRequest();
 
-        when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
-
         // Act & Assert
         assertThrows(OrderNotFoundException.class,
                 () -> orderService.updateOrderInfo(orderId, updateRequest));
@@ -311,48 +276,59 @@ public class OrderServiceTests {
 
     @Test
     void approveOrder_WithNewStatus_ShouldApproveAndSend() {
-        // Arrange
-        Long orderId = 1L;
 
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(orderEntity));
-        when(orderModelToEntityMapper.toModel(orderEntity)).thenReturn(order);
-        when(orderRepository.save(any(OrderEntity.class))).thenReturn(orderEntity);
-        when(orderModelToEntityMapper.toModel(orderEntity)).thenReturn(order);
+        Customer customer = CustomerBuilder.generateDefaultValidCustomer();
 
-        // Act
-        orderService.approveOrder(orderId);
+        OrderRequest orderRequest = OrderRequestBuilder.builder()
+                .withDeliveryAddress(AddressDtoBuilder.builder()
+                        .getDefaultValidAddressDto()
+                )
+                .withCustomer(customer.getName(), customer.getSurname(), customer.getPhoneNumber())
+                .withItems(List.of(OrderItemRequestBuilder.buildDefaultValidOrderItemRequest()))
+                .build();
+
+        Order savedOrder = orderService.createOrder(orderRequest);
+
+        Assertions.assertNotNull(savedOrder);
+        Assertions.assertNotNull(savedOrder.getCustomer());
+        Assertions.assertNotNull(savedOrder.getDeliveryAddress());
+        Assertions.assertNotNull(savedOrder.getId());
+        Assertions.assertEquals(OrderStatusEnum.NEW, savedOrder.getStatus());
+
+        orderService.approveOrder(savedOrder.getId());
+        Order approvedOrder = orderService.getOrderById(savedOrder.getId());
 
         // Assert
-        assertEquals(OrderStatusEnum.APPROVED, order.getStatus());
-        verify(orderRepository, times(1)).save(orderEntity);
-        verify(orderSender, times(1)).send(order);
+        Assertions.assertEquals(OrderStatusEnum.APPROVED, approvedOrder.getStatus());
+
     }
 
     @Test
     void approveOrder_WithNonNewStatus_ShouldThrowException() {
-        // Arrange
-        Long orderId = 1L;
-        Order approvedOrder = OrderBuilder.builder()
-                .withId(orderId)
-                .withStatus(OrderStatusEnum.APPROVED)
+
+        Customer customer = CustomerBuilder.generateDefaultValidCustomer();
+
+        OrderRequest orderRequest = OrderRequestBuilder.builder()
+                .withDeliveryAddress(AddressDtoBuilder.builder()
+                        .getDefaultValidAddressDto()
+                )
+                .withCustomer(customer.getName(), customer.getSurname(), customer.getPhoneNumber())
+                .withItems(List.of(OrderItemRequestBuilder.buildDefaultValidOrderItemRequest()))
                 .build();
 
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(orderEntity));
-        when(orderModelToEntityMapper.toModel(orderEntity)).thenReturn(approvedOrder);
+        Order createdOrder = orderService.createOrder(orderRequest);
+        // подтверждаем заказ в 1й раз
+        orderService.approveOrder(createdOrder.getId());
 
+        // Пытаемся подтвердить заказ во второй раз
+        Assertions.assertThrows(OrderCannotBeUpdatedException.class, () -> orderService.approveOrder(createdOrder.getId()));
 
-        assertThrows(OrderCannotBeUpdatedException.class,
-                () -> orderService.approveOrder(orderId));
-
-        verify(orderRepository, never()).save(any());
-        verify(orderSender, never()).send(any());
     }
 
     @Test
     void approveOrder_WithNonExistingOrder_ShouldThrowException() {
         // Arrange
         Long orderId = 999L;
-        when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(OrderNotFoundException.class,

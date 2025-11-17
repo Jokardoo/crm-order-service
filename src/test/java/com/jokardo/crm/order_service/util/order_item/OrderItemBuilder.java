@@ -88,5 +88,15 @@ public class OrderItemBuilder {
         return orderItem;
     }
 
+    public OrderItem generateDefaultOrderItem() {
+        OrderItem orderItem = new OrderItem();
+
+        orderItem.setQuantity(2);
+        orderItem.setProductName("Product name");
+        orderItem.setDescription("Description");
+
+        return orderItem;
+    }
+
 
 }
