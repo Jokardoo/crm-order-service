@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
@@ -33,4 +34,12 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
         WHERE o.id = :orderId
     """)
     void updateOrderStatus(@Param("orderId") Long orderId, @Param("status") OrderStatusEnum status);
+
+    @Query(value = """
+    SELECT oe.id, oe.city, oe.street, oe.status, oe.customer_id, oe.created_at, oe.postal_code 
+    FROM orders oe
+    LEFT JOIN customer c ON oe.customer_id = c.id 
+    WHERE c.phone_number = :phoneNumber
+    """, nativeQuery = true)
+    List<OrderEntity> findByCustomerPhoneNumber(@Param("phoneNumber") String phoneNumber);
 }

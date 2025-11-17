@@ -1,6 +1,7 @@
 package com.jokardo.crm.order_service.util;
 
 import com.jokardo.crm.order_service.domain.address.AddressDto;
+import com.jokardo.crm.order_service.domain.customer.Customer;
 import com.jokardo.crm.order_service.domain.order.OrderRequest;
 import com.jokardo.crm.order_service.domain.order.order_item.OrderItemRequest;
 import com.jokardo.crm.order_service.util.order_item.OrderItemRequestBuilder;
@@ -27,6 +28,13 @@ public class OrderRequestBuilder {
         return this;
     }
 
+    public OrderRequestBuilder withCustomer(Customer customer) {
+        this.customerName = customer.getName();
+        this.customerSurname = customer.getSurname();
+        this.customerPhoneNumber = customer.getPhoneNumber();
+        return this;
+    }
+
     public OrderRequestBuilder withItem(String name, int quantity, String description) {
         OrderItemRequestBuilder orderItemRequestBuilder = new OrderItemRequestBuilder();
         OrderItemRequest orderItemRequest = orderItemRequestBuilder
@@ -41,6 +49,11 @@ public class OrderRequestBuilder {
 
     public OrderRequestBuilder withItems(List<OrderItemRequest> items) {
         this.items = items;
+        return this;
+    }
+
+    public OrderRequestBuilder withDeliveryAddress(AddressDto deliveryAddress) {
+        this.deliveryAddress = deliveryAddress;
         return this;
     }
 
